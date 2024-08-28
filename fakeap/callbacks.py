@@ -1,9 +1,14 @@
-import rpyutils.rpyutils
+# callbacks
 from scapy.layers.dhcp import *
 from scapy.layers.dns import DNS
 from scapy.layers.dot11 import *
-from scapy.layers.inet import TCP, UDP
+from scapy.layers.inet import UDP
+import scapy.layers.eap
+import scapy.all
+import scapy.layers.l2
+import scapy.data
 
+from rpyutils import printd, Level, bytes_to_mac, mac_to_bytes
 from .constants import *
 from .eap import *
 
@@ -85,18 +90,20 @@ class Callbacks(object):
 
             # Data packet
             if packet.type == DOT11_TYPE_DATA:
-                if EAPOL in packet:
+                if scapy.layers.eap.EAPOL in packet:
                     if packet.addr1 == self.ap.mac:
-                        # EAPOL Start
-                        if packet[EAPOL].type == 0x01:
+                        #  scapy.layers.eap.EAPOL Start
+                        if packet[scapy.layers.eap.EAPOL].type == 0x01:
                             self.ap.eap.reset_id()
                             self.dot1x_eap_resp(
                                 packet.addr2, EAPCode.REQUEST, EAPType.IDENTITY, None
                             )
-                if EAP in packet:
-                    if packet[EAP].code == EAPCode.RESPONSE:  # Responses
-                        if packet[EAP].type == EAPType.IDENTITY:
-                            identity = str(packet[Raw])
+                if scapy.layers.eap.EAP in packet:
+                    if (
+                        packet[scapy.layers.eap.EAP].code == EAPCode.RESPONSE
+                    ):  # Responses
+                        if packet[scapy.layers.eap.EAP].type == EAPType.IDENTITY:
+                            identity = str(packet[scapy.all.Raw])
                             if packet.addr1 == self.ap.mac:
                                 # EAP Identity Response
                                 printd(
@@ -113,8 +120,8 @@ class Callbacks(object):
                                 + "\x00\x00\x00\x00\x00\x00\x00\x00"
                                 + str(identity[0 : len(identity) - 4]),
                             )
-                        if packet[EAP].type == EAPType.NAK:  # NAK
-                            method = str(packet[Raw])
+                        if packet[scapy.layers.eap.EAP].type == EAPType.NAK:  # NAK
+                            method = str(packet[scapy.all.Raw])
                             method = method[0 : len(method) - 4]
                             method = ord(method.strip("x\\"))
                             printd(
@@ -122,9 +129,9 @@ class Callbacks(object):
                                 Level.INFO,
                             )
 
-                elif ARP in packet:
-                    if packet[ARP].pdst == self.ap.ip.split("/")[0]:
-                        self.cb_arp_req(packet.addr2, packet[ARP].psrc)
+                elif scapy.layers.l2.ARP in packet:
+                    if packet[scapy.layers.l2.ARP].pdst == self.ap.ip.split("/")[0]:
+                        self.cb_arp_req(packet.addr2, packet[scapy.layers.l2.ARP].psrc)
                 elif DHCP in packet:
                     if packet.addr1 == self.ap.mac:
                         if packet[DHCP].options[0][1] == 1:
@@ -189,7 +196,7 @@ class Callbacks(object):
         sendp(probe_response_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_beacon(self, ssid):
-        # Create beacon packet
+        """Create beacon packet"""
         beacon_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -219,6 +226,7 @@ class Callbacks(object):
         sendp(beacon_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_auth(self, receiver):
+        """dot11_auth"""
         auth_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -288,8 +296,8 @@ class Callbacks(object):
                 FCfield="from-DS",
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
-            / SNAP(OUI=0x000000, code=ETH_P_ARP)
-            / ARP(
+            / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_ARP)
+            / scapy.layers.l2.ARP(
                 psrc=self.ap.ip.split("/")[0],
                 pdst=receiver_ip,
                 op="is-at",
@@ -314,9 +322,11 @@ class Callbacks(object):
                 FCfield="from-DS",
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
-            / SNAP(OUI=0x000000, code=0x888E)
-            / EAPOL(version=1, type=0)
-            / EAP(code=eap_code, id=self.ap.eap.next_id(), type=eap_type)
+            / scapy.layers.l2.SNAP(OUI=0x000000, code=0x888E)
+            / scapy.layers.eap.EAPOL(version=1, type=0)
+            / scapy.layers.eap.EAP(
+                code=eap_code, id=self.ap.eap.next_id(), type=eap_type
+            )
         )
 
         if not eap_data is None:
@@ -347,7 +357,7 @@ class Callbacks(object):
                 FCfield="from-DS",
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
-            / SNAP(OUI=0x000000, code=ETH_P_IP)
+            / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / IP(src=self.ap.ip, dst=client_ip)
             / UDP(sport=67, dport=68)
             / BOOTP(
@@ -377,7 +387,7 @@ class Callbacks(object):
                 FCfield="from-DS",
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
-            / SNAP(OUI=0x000000, code=ETH_P_IP)
+            / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / IP(src=self.ap.ip, dst=client_ip)
             / UDP(sport=67, dport=68)
             / BOOTP(
@@ -420,7 +430,7 @@ class Callbacks(object):
                 FCfield="from-DS",
             )
             / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
-            / SNAP(OUI=0x000000, code=ETH_P_IP)
+            / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / str(ip_packet)
         )
 

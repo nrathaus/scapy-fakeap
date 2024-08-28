@@ -1,3 +1,4 @@
+# fakeap.py
 import subprocess
 from time import sleep, time
 
@@ -19,7 +20,7 @@ class FakeAccessPoint(object):
         def __init__(self, ap):
             threading.Thread.__init__(self)
             self.ap = ap
-            self.setDaemon(True)
+            self.daemon = True
             self.interval = 0.1
 
         def run(self):
@@ -148,8 +149,8 @@ class FakeAccessPoint(object):
         maxidx = len(self.ssids)
         self.current_ssid_index = (self.current_ssid_index + 1) % maxidx
 
-    def current_timestamp(self):
-        return (time() - self.boottime) * 1000000
+    def current_timestamp(self) -> int:
+        return int((time() - self.boottime) * 1000000)
 
     def next_sc(self):
         self.mutex.acquire()
@@ -171,9 +172,9 @@ class FakeAccessPoint(object):
         radiotap_packet = RadioTap(
             len=18,
             present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
-            notdecoded="\x00\x6c"
+            notdecoded=b"\x00\x6c"
             + get_frequency(self.channel)
-            + "\xc0\x00\xc0\x01\x00\x00",
+            + b"\xc0\x00\xc0\x01\x00\x00",
         )
         return radiotap_packet
 

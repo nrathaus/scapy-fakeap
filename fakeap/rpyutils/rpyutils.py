@@ -1,3 +1,4 @@
+# rpyutils.py
 import os
 import re
 import struct
@@ -92,6 +93,7 @@ def clear_ip_tables():
 
 
 def printd(string, level):
+    """printd"""
     if VERBOSITY >= level:
         print(string)
 

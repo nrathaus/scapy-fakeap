@@ -1,4 +1,5 @@
-from ConfigParser import ConfigParser, NoOptionError
+from configparser import ConfigParser, NoOptionError
+
 from rpyutils import Level, printd
 
 
