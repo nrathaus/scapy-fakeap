@@ -1,12 +1,12 @@
 from ConfigParser import ConfigParser, NoOptionError
-from rpyutils import printd, Level
+from rpyutils import Level, printd
 
 
 class ConfigHeader(object):
     def __init__(self, fp):
         self.fp = fp
         self.first_line = True
-        self.dummy_section = '[fakeap]\n'
+        self.dummy_section = "[fakeap]\n"
 
     def readline(self):
         if self.first_line:
@@ -18,17 +18,22 @@ class ConfigHeader(object):
 
 class Conf(ConfigParser):
     def __init__(self, path):
-        ConfigParser.__init__(self)  # ConfigParser is an old-style class... Can't user 'super'
+        ConfigParser.__init__(
+            self
+        )  # ConfigParser is an old-style class... Can't user 'super'
         self.path = path
         self.readfp(ConfigHeader(open(path)))
 
     def get(self, key, default=None):
         value = None
         try:
-            value = ConfigParser.get(self, 'fakeap', key)
+            value = ConfigParser.get(self, "fakeap", key)
         except NoOptionError as e:
             value = default
-            printd("Option '%s' not specified in config file. Using default." % e.option, Level.WARNING)
+            printd(
+                "Option '%s' not specified in config file. Using default." % e.option,
+                Level.WARNING,
+            )
 
         printd("%s -> %s" % (key, value), Level.INFO)
 

@@ -1,8 +1,9 @@
 import threading
-from rpyutils import printd, Level
+
+from rpyutils import Level, printd
 
 
-class ARPHandler():
+class ARPHandler:
     def __init__(self):
         self.mutex = threading.Lock()
         self.arp_table = {}

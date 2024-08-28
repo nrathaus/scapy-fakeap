@@ -74,7 +74,9 @@ The following example shows how a custom callback for a ```Callbacks()``` instan
 # The callback will trigger each time an EAPOL packet is sniffed.
 
 from types import MethodType
+
 from scapy.layers.dot11 import EAPOL
+
 from fakeap import *
 
 

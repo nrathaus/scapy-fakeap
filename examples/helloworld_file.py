@@ -4,5 +4,5 @@
 
 from fakeap import FakeAccessPoint
 
-ap = FakeAccessPoint.from_file('example.conf')
+ap = FakeAccessPoint.from_file("example.conf")
 ap.run()

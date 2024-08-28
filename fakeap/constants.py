@@ -1,6 +1,6 @@
 import platform
 
-RUNNING_ON_PI = platform.machine() == 'armv6l'
+RUNNING_ON_PI = platform.machine() == "armv6l"
 DEFAULT_DNS_SERVER = "8.8.8.8"
 RSN = "\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x28\x00"
 
@@ -30,4 +30,4 @@ IFNAMSIZ = 16
 IFF_TUN = 0x0001
 IFF_TAP = 0x0002  # Should we want to tunnel layer 2...
 IFF_NO_PI = 0x1000
-TUNSETIFF = 0x400454ca
+TUNSETIFF = 0x400454CA

@@ -30,14 +30,14 @@ class EAPType:
                 return str(key)
 
 
-class EAPHandler():
+class EAPHandler:
     def __init__(self):
         self.id = 0
         self.mutex = threading.Lock()
 
     def next_id(self):
         self.mutex.acquire()
-        self.id = (self.id + 1)
+        self.id = self.id + 1
         temp = self.id
         self.mutex.release()
 

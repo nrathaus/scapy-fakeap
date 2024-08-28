@@ -3,5 +3,5 @@
 
 from fakeap import *
 
-ap = FakeAccessPoint('mon0', 'github.com/rpp0/scapy-fakeap')
+ap = FakeAccessPoint("mon0", "github.com/rpp0/scapy-fakeap")
 ap.run()
