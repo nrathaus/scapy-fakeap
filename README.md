@@ -105,3 +105,24 @@ Service interaction
 -------------------
 
 Upon instantiation of a ```FakeAccessPoint``` object, scapy-fakeap automatically creates the ```fakeap``` virtual interface, which may be used for interacting with other services. For example, you can set it as the listen interface for ```dnsmasq``` to use a DHCP server for your fake AP.
+
+
+# Prevent NetworkManager from managing device
+Find the device MAC address, example:
+```
+# ip link show
+
+...
+3: wlx0026f28821e3: <NO-CARRIER,BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state DORMANT mode DORMANT group default qlen 1000
+    link/ieee802.11/radiotap 00:26:f2:88:21:e3 brd ff:ff:ff:ff:ff:ff
+```
+
+Then edit:
+
+`vi /etc/NetworkManager/conf.d/99-unmanaged-devices.conf`
+
+
+```
+[keyfile]
+unmanaged-devices=mac:00:26:f2:88:21:e3
+```
