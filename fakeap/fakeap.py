@@ -133,7 +133,7 @@ class FakeAccessPoint(object):
         if subprocess.call(["sysctl", "-w", "net.ipv4.ip_forward=1"]):
             printd("Failed to enable IP forwarding.", Level.CRITICAL)
 
-        printd("IP packets will be routed through %s." % dev, Level.INFO)
+        printd(f"IP packets will be routed through '{dev}'.", Level.INFO)
 
     def add_ssid(self, ssid):
         if not ssid in self.ssids and ssid != "":

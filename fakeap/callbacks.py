@@ -169,6 +169,13 @@ class Callbacks(object):
             print(f"Unknown error at tun interface: {repr(err)}")
 
     def dot11_probe_resp(self, source, ssid):
+        """dot11_probe_resp"""
+        dot11proberesp = Dot11ProbeResp(
+                timestamp=self.ap.current_timestamp(),
+                beacon_interval=0x0064,
+                cap=CAP # 0x2104,
+            )
+        dot11proberesp.cap -= 'res12'
         probe_response_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -178,11 +185,7 @@ class Callbacks(object):
                 addr3=self.ap.mac,
                 SC=self.ap.next_sc(),
             )
-            / Dot11ProbeResp(
-                timestamp=self.ap.current_timestamp(),
-                beacon_interval=0x0064,
-                cap=0x2104,
-            )
+            / dot11proberesp
             / Dot11Elt(ID="SSID", info=ssid)
             / Dot11Elt(ID="Rates", info=AP_RATES)
             / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
@@ -194,10 +197,13 @@ class Callbacks(object):
             rsn_info = Dot11Elt(ID="RSNinfo", info=RSN)
             probe_response_packet = probe_response_packet / rsn_info
 
+        printd("Sending Probe Response...", Level.INFO)
         sendp(probe_response_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_beacon(self, ssid):
         """Create beacon packet"""
+
+        dot11beacon = Dot11Beacon(cap=CAP) # cap=0x2105)
         beacon_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -207,7 +213,7 @@ class Callbacks(object):
                 addr2=self.ap.mac,
                 addr3=self.ap.mac,
             )
-            / Dot11Beacon(cap=0x3114)  # cap=0x2105)
+            / dot11beacon
             / Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
             / Dot11Elt(ID="Rates", info=AP_RATES)
             / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
@@ -245,14 +251,16 @@ class Callbacks(object):
         sendp(auth_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_ack(self, receiver):
+        """dot11_ack"""
         ack_packet = self.ap.get_radiotap_header() / Dot11(
             type="Control", subtype=0x1D, addr1=receiver
         )
 
-        print("Sending ACK (0x1D) to %s ..." % receiver)
+        print(f"Sending ACK (0x1D) to {receiver} ...")
         sendp(ack_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_assoc_resp(self, receiver, reassoc):
+        """dot11_assoc_resp"""
         response_subtype = 0x01
         if reassoc == 0x02:
             response_subtype = 0x03
@@ -265,7 +273,8 @@ class Callbacks(object):
                 addr3=self.ap.mac,
                 SC=self.ap.next_sc(),
             )
-            / Dot11AssoResp(cap=0x2104, status=0, AID=self.ap.next_aid())
+            / Dot11AssoResp(cap=CAP, # 0x2104
+                            status=0, AID=self.ap.next_aid())
             / Dot11Elt(ID="Rates", info=AP_RATES)
         )
 
