@@ -3,7 +3,7 @@
 
 from types import MethodType
 
-from scapy.layers.dot11 import EAPOL
+import scapy.layers.eap
 
 from fakeap import *
 
@@ -15,7 +15,7 @@ def do_something(self):  # Our custom callback
 def my_recv_pkt(
     self, pkt
 ):  # We override recv_pkt to include a trigger for our callback
-    if EAPOL in pkt:
+    if scapy.layers.eap.EAPOL in pkt:
         self.cb_do_something()
     self.recv_pkt(pkt)
 

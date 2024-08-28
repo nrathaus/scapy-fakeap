@@ -1,4 +1,4 @@
-from rpyutils import *
+import rpyutils.rpyutils
 from scapy.layers.dhcp import *
 from scapy.layers.dns import DNS
 from scapy.layers.dot11 import *
