@@ -10,7 +10,11 @@ AP_WLAN_TYPE_WPA2 = 2
 AP_WLAN_TYPE_WPA_WPA2 = 3
 AP_AUTH_TYPE_OPEN = 0
 AP_AUTH_TYPE_SHARED = 1
-AP_RATES = "\x0c\x12\x18\x24\x30\x48\x60\x6c"
+# Tag: Supported Rates 6, 9, 12, 18, 24, 36, 48, 54, [Mbit/sec]
+# AP_RATES = "\x0c\x12\x18\x24\x30\x48\x60\x6c"
+
+# Tag: Supported Rates 1(B), 2(B), 5.5(B), 11(B), 6, 9, 12, 18, [Mbit/sec]
+AP_RATES = "\x82\x84\x8b\x96\x0c\x12\x18\x24"
 
 DOT11_MTU = 4096
 

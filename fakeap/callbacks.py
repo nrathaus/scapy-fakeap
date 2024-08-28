@@ -1,14 +1,14 @@
 # callbacks
+import scapy.all
+import scapy.data
+import scapy.layers.eap
+import scapy.layers.l2
+from rpyutils import Level, bytes_to_mac, mac_to_bytes, printd
 from scapy.layers.dhcp import *
 from scapy.layers.dns import DNS
 from scapy.layers.dot11 import *
 from scapy.layers.inet import UDP
-import scapy.layers.eap
-import scapy.all
-import scapy.layers.l2
-import scapy.data
 
-from rpyutils import printd, Level, bytes_to_mac, mac_to_bytes
 from .constants import *
 from .eap import *
 
@@ -145,9 +145,10 @@ class Callbacks(object):
                     self.cb_other_request(packet)
 
         except Exception as err:
-            print("Unknown error at monitor interface: %s" % repr(err))
+            print(f"Unknown error at monitor interface: {repr(err)}")
 
     def recv_pkt_tint(self, packet):
+        """recv_pkt_tint"""
         try:
             packet = IP(packet)  # We expect an IP packet from the external interface
             if BOOTP in packet:
@@ -165,7 +166,7 @@ class Callbacks(object):
                 self.dot11_encapsulate_ip(self.ap.arp.get_entry(client_ip), packet)
 
         except Exception as err:
-            print("Unknown error at tun interface: %s" % repr(err))
+            print(f"Unknown error at tun interface: {repr(err)}")
 
     def dot11_probe_resp(self, source, ssid):
         probe_response_packet = (
@@ -200,13 +201,14 @@ class Callbacks(object):
         beacon_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
+                type=0,
                 subtype=8,
                 addr1="ff:ff:ff:ff:ff:ff",
                 addr2=self.ap.mac,
                 addr3=self.ap.mac,
             )
-            / Dot11Beacon(cap=0x2105)
-            / Dot11Elt(ID="SSID", info=ssid)
+            / Dot11Beacon(cap=0x3114)  # cap=0x2105)
+            / Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
             / Dot11Elt(ID="Rates", info=AP_RATES)
             / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
         )
@@ -220,7 +222,7 @@ class Callbacks(object):
         beacon_packet.SC = self.ap.next_sc()
 
         # Update timestamp
-        beacon_packet[Dot11Beacon].timestamp = self.ap.current_timestamp()
+        # beacon_packet[Dot11Beacon].timestamp = self.ap.current_timestamp()
 
         # Send
         sendp(beacon_packet, iface=self.ap.interface, verbose=False)

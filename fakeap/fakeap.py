@@ -73,6 +73,7 @@ class FakeAccessPoint(object):
             )
         else:
             self.bpffilter = bpffilter
+
         self.ip = "10.0.0.1/24"
         self.boottime = time()
         self.sc = 0
@@ -89,6 +90,7 @@ class FakeAccessPoint(object):
         self.tint = None
 
     def share_internet(self, dev):
+        """share_internet"""
         TCP.payload_guess = []
         clear_ip_tables()
 
@@ -107,7 +109,7 @@ class FakeAccessPoint(object):
             ]
         ):
             printd(
-                "Failed to setup postrouting for interface %s." % dev, Level.CRITICAL
+                f"Failed to setup postrouting for interface '{dev}'.", Level.CRITICAL
             )
 
         # Forward
@@ -123,7 +125,7 @@ class FakeAccessPoint(object):
             ]
         ):
             printd(
-                "Failed to setup forwarding for interface %s." % self.tint.name,
+                f"Failed to setup forwarding for interface '{self.tint.name}'.",
                 Level.CRITICAL,
             )
 
@@ -169,13 +171,13 @@ class FakeAccessPoint(object):
         return temp
 
     def get_radiotap_header(self):
-        radiotap_packet = RadioTap(
-            len=18,
-            present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
-            notdecoded=b"\x00\x6c"
-            + get_frequency(self.channel)
-            + b"\xc0\x00\xc0\x01\x00\x00",
-        )
+        radiotap_packet = RadioTap()
+        #     len=18,
+        #     present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
+        #     notdecoded=b"\x00\x6c"
+        #     + get_frequency(self.channel)
+        #     + b"\xc0\x00\xc0\x01\x00\x00",
+        # )
         return radiotap_packet
 
     def run(self):
@@ -188,7 +190,9 @@ class FakeAccessPoint(object):
 
         if self.inet_interface is not None:
             self.share_internet(self.inet_interface)
+
         scapyconf.iface = self.interface
+
         sniff(
             iface=self.interface,
             prn=self.callbacks.cb_recv_pkt,
