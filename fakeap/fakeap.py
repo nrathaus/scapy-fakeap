@@ -73,7 +73,7 @@ class FakeAccessPoint(object):
                 ") or (ether dst host ff:ff:ff:ff:ff:ff))"
             )
 
-        self.ip = "10.0.0.1/24"
+        self.ip = "10.0.0.1"
         self.boottime = time()
         self.sc = 0
         self.aid = 0
