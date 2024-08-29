@@ -106,7 +106,7 @@ class Callbacks(object):
             first_pos = dump.find("subtype")
             second_pos = dump.find("\n", first_pos)
             dump = dump[first_pos:second_pos]
-            print(f"Incoming DATA packet: {dump}")
+            print(f"Incoming DATA packet: {dump}, {packet.payload.payload}")
             try:
                 if scapy.layers.eap.EAPOL in packet:
                     if packet.addr1 == self.ap.mac:
@@ -153,10 +153,15 @@ class Callbacks(object):
                 elif DHCP in packet:
                     if packet.addr1 == self.ap.mac:
                         if packet[DHCP].options[0][1] == 1:
-                            self.cb_dhcp_discover(packet)
+                            self.dhcp_offer(packet.addr2, "10.0.0.3", packet[BOOTP].xid)
+                            # self.cb_dhcp_discover(packet)
+                            return
 
                         if packet[DHCP].options[0][1] == 3:
-                            self.cb_dhcp_request(packet)
+                            self.dhcp_ack(packet.addr2, "10.0.0.3", packet[BOOTP].xid)
+                            # self.cb_dhcp_request(packet)
+                            return
+
                 elif DNS in packet:
                     self.cb_dns_request(packet)
                 elif IP in packet:
@@ -258,7 +263,7 @@ class Callbacks(object):
             rsn_info = Dot11Elt(ID="RSNinfo", info=RSN)
             probe_response_packet = probe_response_packet / rsn_info
 
-        printd("Sending Probe Response...", Level.INFO)
+        printd("Sending Probe Response...", Level.DEBUG)
         sendp(probe_response_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_beacon(self, ssid):
@@ -456,14 +461,15 @@ class Callbacks(object):
         printd("Sending RAW packet...", Level.DEBUG)
         sendp(raw_packet, iface=self.ap.interface, verbose=False)
 
-    def dhcp_offer(self, client_mac, client_ip, xid):
+    def dhcp_offer(self, client_mac: str, client_ip: str, xid):
         dhcp_offer_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
                 type="Data",
                 subtype=0,
-                addr1="ff:ff:ff:ff:ff:ff",
+                addr1=client_mac,
                 addr2=self.ap.mac,
+                addr3=self.ap.mac,
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
@@ -476,7 +482,7 @@ class Callbacks(object):
                 yiaddr=client_ip,
                 siaddr=self.ap.ip,
                 giaddr=self.ap.ip,
-                chaddr=mac_to_bytes(client_mac),
+                chaddr=scapy.all.mac2str(client_mac),
                 xid=xid,
             )
             / DHCP(options=[("message-type", "offer")])
@@ -484,7 +490,8 @@ class Callbacks(object):
             / DHCP(options=[("server_id", self.ap.ip), "end"])
         )
 
-        sendp(dhcp_offer_packet, iface=self.ap.interface, verbose=False)
+        printd("Sending DHCP Offer...", Level.INFO)
+        sendp(dhcp_offer_packet, iface=self.ap.interface, verbose=True)
 
     def dhcp_ack(self, client_mac, client_ip, xid):
         dhcp_ack_packet = (
@@ -492,8 +499,9 @@ class Callbacks(object):
             / Dot11(
                 type="Data",
                 subtype=0,
-                addr1="ff:ff:ff:ff:ff:ff",
+                addr1=client_mac,
                 addr2=self.ap.mac,
+                addr3=self.ap.mac,
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
@@ -506,7 +514,7 @@ class Callbacks(object):
                 yiaddr=client_ip,
                 siaddr=self.ap.ip,
                 giaddr=self.ap.ip,
-                chaddr=mac_to_bytes(client_mac),
+                chaddr=scapy.all.mac2str(client_mac),
                 xid=xid,
             )
             / DHCP(options=[("message-type", "ack")])
@@ -518,6 +526,8 @@ class Callbacks(object):
             / DHCP(options=[("domain", "localdomain")])
             / DHCP(options=["end"])
         )
+
+        printd("Sending DHCP Ack...", Level.INFO)
         sendp(dhcp_ack_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_encapsulate_ip(self, client_mac, ip_packet):
