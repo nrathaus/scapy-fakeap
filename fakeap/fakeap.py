@@ -59,20 +59,19 @@ class FakeAccessPoint(object):
 
         self.interface = interface
         self.inet_interface = None
-        self.channel = 1
+        self.channel = 8
         self.mac = if_hwaddr(interface)
         self.wpa = 0
         self.ieee8021x = 0
         self.lfilter = None
         self.hidden = False
+        self.bpffilter = bpffilter
         if bpffilter == "":
             self.bpffilter = (
                 "not ( wlan type mgt subtype beacon ) and ((ether dst host "
-                + self.mac
-                + ") or (ether dst host ff:ff:ff:ff:ff:ff))"
+                f"{self.mac}"
+                ") or (ether dst host ff:ff:ff:ff:ff:ff))"
             )
-        else:
-            self.bpffilter = bpffilter
 
         self.ip = "10.0.0.1/24"
         self.boottime = time()
@@ -152,7 +151,10 @@ class FakeAccessPoint(object):
         self.current_ssid_index = (self.current_ssid_index + 1) % maxidx
 
     def current_timestamp(self) -> int:
-        return int((time() - self.boottime) * 1000000)
+        # elapsed_time = time() - self.boottime
+        # elapsed_time *= 1000000
+        elapsed_time = time()
+        return int(elapsed_time)
 
     def next_sc(self):
         self.mutex.acquire()
@@ -160,7 +162,7 @@ class FakeAccessPoint(object):
         temp = self.sc
         self.mutex.release()
 
-        return temp * 16  # Fragment number -> right 4 bits
+        return temp << 4  # Fragment number -> right 4 bits
 
     def next_aid(self):
         self.mutex.acquire()
@@ -171,13 +173,13 @@ class FakeAccessPoint(object):
         return temp
 
     def get_radiotap_header(self):
-        radiotap_packet = RadioTap()
-        #     len=18,
-        #     present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
-        #     notdecoded=b"\x00\x6c"
-        #     + get_frequency(self.channel)
-        #     + b"\xc0\x00\xc0\x01\x00\x00",
-        # )
+        radiotap_packet = RadioTap(
+            # len=18,
+            # present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
+            # notdecoded=b"\x00\x6c"
+            # + get_frequency(self.channel)
+            # + b"\xc0\x00\xc0\x01\x00\x00",
+        )
         return radiotap_packet
 
     def run(self):
