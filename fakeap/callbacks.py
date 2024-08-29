@@ -37,29 +37,38 @@ class Callbacks(object):
         self.cb_tint_read = self.recv_pkt_tint
 
     def recv_pkt(self, packet):
-        try:
-            if len(packet.notdecoded[8:9]) > 0:  # Driver sent radiotap header flags
+        """recv_pkt"""
+        if len(packet.notdecoded[8:9]) > 0:  # Driver sent radiotap header flags
+            try:
                 # This means it doesn't drop packets with a bad FCS itself
                 flags = ord(packet.notdecoded[8:9])
                 if flags & 64 != 0:  # BAD_FCS flag is set
                     # Print a warning if we haven't already discovered this MAC
                     if not packet.addr2 is None:
                         printd(
-                            "Dropping corrupt packet from %s" % packet.addr2,
+                            f"Dropping corrupt packet from '{packet.addr2}",
                             Level.BLOAT,
                         )
                     # Drop this packet
                     return
+            except Exception as err:
+                print(f"Unknown error decoding packet: {repr(err)}")
 
-            # Management
-            if packet.type == DOT11_TYPE_MANAGEMENT:
+        # Management
+        if packet.type == DOT11_TYPE_MANAGEMENT:
+            try:
+                # Show which type of packet we got
+                dump: str = packet[Dot11].show2(dump=True)
+                first_pos = dump.find("subtype")
+                second_pos = dump.find("\n", first_pos)
+                dump = dump[first_pos:second_pos]
+                print(f"Incoming MANAGEMENT packet: {dump}")
                 if packet.subtype == DOT11_SUBTYPE_PROBE_REQ:  # Probe request
                     if Dot11Elt in packet:
                         ssid = packet[Dot11Elt].info
 
                         printd(
-                            "Probe request for SSID %s by MAC %s"
-                            % (ssid, packet.addr2),
+                            f"Probe request for SSID '{ssid}' by MAC '{packet.addr2}'",
                             Level.DEBUG,
                         )
 
@@ -87,9 +96,18 @@ class Callbacks(object):
                             self.cb_dot1X_eap_req(
                                 packet.addr2, EAPCode.REQUEST, EAPType.IDENTITY, None
                             )
+            except Exception as err:
+                print(f"Unknown error (DOT11_TYPE_MANAGEMENT): {repr(err)}")
 
-            # Data packet
-            if packet.type == DOT11_TYPE_DATA:
+        # Data packet
+        if packet.type == DOT11_TYPE_DATA:
+            # Show which type of packet we got
+            dump: str = packet[Dot11].show2(dump=True)
+            first_pos = dump.find("subtype")
+            second_pos = dump.find("\n", first_pos)
+            dump = dump[first_pos:second_pos]
+            print(f"Incoming DATA packet: {dump}")
+            try:
                 if scapy.layers.eap.EAPOL in packet:
                     if packet.addr1 == self.ap.mac:
                         #  scapy.layers.eap.EAPOL Start
@@ -144,8 +162,8 @@ class Callbacks(object):
                 elif IP in packet:
                     self.cb_other_request(packet)
 
-        except Exception as err:
-            print(f"Unknown error at monitor interface: {repr(err)}")
+            except Exception as err:
+                print(f"Unknown error (DOT11_TYPE_DATA): {repr(err)}")
 
     def recv_pkt_tint(self, packet):
         """recv_pkt_tint"""
@@ -171,11 +189,19 @@ class Callbacks(object):
     def dot11_probe_resp(self, source, ssid):
         """dot11_probe_resp"""
         dot11proberesp = Dot11ProbeResp(
-                timestamp=self.ap.current_timestamp(),
-                beacon_interval=0x0064,
-                cap=CAP # 0x2104,
-            )
-        dot11proberesp.cap -= 'res12'
+            timestamp=self.ap.current_timestamp(),
+            beacon_interval=0x0064,
+            cap=CAP,  # 0x2104,
+        )
+        ht_capabilities = Dot11Elt(
+            ID="HT Capabilities",
+            info=b"\xff\x19"  # HT Capabilities Info: 0x19ff
+            b"\x03"  # A-MPDU Parameters: 0x03
+            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"  # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            b"\x00\x00"  # HT Extended Capabilities: 0x0000
+            b"\x00\x00\x00\x00"  # Transmit Beam Forming (TxBF) Capabilities: 0x00000000
+            b"\x00",  # Antenna Selection (ASEL) Capabilities: 0x00
+        )
         probe_response_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -186,9 +212,44 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
             )
             / dot11proberesp
+            # / Dot11Elt(ID="SSID", info=ssid)
+            # / Dot11Elt(ID="Rates", info=AP_RATES)
+            # / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
+            # # https://github.com/rsmusllp/eapeak/blob/master/lib/eapeak/inject.py#L256
+            # / Dot11Elt(ID="ERPinfo", info="\x04")
+            # / Dot11Elt(ID=47, info="\x04")
+            # / Dot11Elt(ID="ESRates", info="\x0c\x12\x18\x60")
             / Dot11Elt(ID="SSID", info=ssid)
-            / Dot11Elt(ID="Rates", info=AP_RATES)
-            / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
+            / Dot11Elt(ID="Supported Rates", info=AP_RATES)
+            / Dot11Elt(ID="DSSS Set", info=chr(self.ap.channel))
+            / Dot11Elt(ID="Extended Supported Rates", info="\x30\x48\x60\x6c")
+            / Dot11Elt(ID="ERP", info="\x00")
+            / Dot11Elt(ID="Country", info=COUNTRY)
+            / ht_capabilities
+            / Dot11Elt(
+                ID="HT Operation",  # 61
+                info=(
+                    bytes([self.ap.channel]) + b"\x05"
+                    b"\x00\x00"
+                    b"\x00\x00"
+                    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                ),
+            )
+            / Dot11Elt(
+                ID=74,  # Overlapping BSS Scan Parameters
+                info=b"\x14\x00"
+                b"\x0a\x00"
+                b"\x2c\x01"
+                b"\xc8\x00"
+                b"\x14\x00"
+                b"\x05\x00"
+                b"\x19\x00",
+            )
+            / Dot11Elt(
+                ID="Extendend Capabilities",
+                info=b"\x01",
+            )
+            / Dot11Elt(ID="Vendor Specific", info=CUSTOM_VSA)
         )
 
         # If we are an RSN network, add RSN data to response
@@ -202,8 +263,17 @@ class Callbacks(object):
 
     def dot11_beacon(self, ssid):
         """Create beacon packet"""
+        dot11beacon = Dot11Beacon(cap=CAP)  # cap=0x2105)
+        ht_capabilities = Dot11Elt(
+            ID="HT Capabilities",
+            info=b"\xff\x19"  # HT Capabilities Info: 0x19ff
+            b"\x03"  # A-MPDU Parameters: 0x03
+            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"  # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            b"\x00\x00"  # HT Extended Capabilities: 0x0000
+            b"\x00\x00\x00\x00"  # Transmit Beam Forming (TxBF) Capabilities: 0x00000000
+            b"\x00",  # Antenna Selection (ASEL) Capabilities: 0x00
+        )
 
-        dot11beacon = Dot11Beacon(cap=CAP) # cap=0x2105)
         beacon_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -214,9 +284,37 @@ class Callbacks(object):
                 addr3=self.ap.mac,
             )
             / dot11beacon
-            / Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
-            / Dot11Elt(ID="Rates", info=AP_RATES)
-            / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
+            # / Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
+            # / Dot11Elt(ID="Rates", info=AP_RATES)
+            # / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
+            # # https://github.com/rsmusllp/eapeak/blob/master/lib/eapeak/inject.py
+            # / Dot11Elt(ID="ERPinfo", info="\x04")
+            # / Dot11Elt(ID=47, info="\x04")
+            # / Dot11Elt(ID="ESRates", info="\x0c\x12\x18\x60")
+            / Dot11Elt(ID="SSID", info=ssid)
+            / Dot11Elt(ID="Supported Rates", info=AP_RATES)
+            / Dot11Elt(ID="DSSS Set", info=bytes([self.ap.channel]))
+            / Dot11Elt(ID="TIM", info=b"\x00\x01\x00\x00")
+            / Dot11Elt(ID="Extended Supported Rates", info=b"\x30\x48\x60\x6c")
+            / Dot11Elt(ID="ERP", info="\x00")
+            / ht_capabilities
+            / Dot11Elt(
+                ID="HT Operation",
+                info=bytes([self.ap.channel])
+                + b"\x01\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            )
+            / Dot11Elt(
+                ID=74,  # Overlapping BSS Scan Parameters
+                info=b"\x14\x00"
+                b"\x0a\x00"
+                b"\x2c\x01"
+                b"\xc8\x00"
+                b"\x14\x00"
+                b"\x05\x00"
+                b"\x19\x00",
+            )
+            / Dot11Elt(ID="Extendend Capabilities", info="\x00")
+            / Dot11Elt(ID="Vendor Specific", info=CUSTOM_VSA)
         )
 
         if self.ap.ieee8021x:
@@ -228,7 +326,7 @@ class Callbacks(object):
         beacon_packet.SC = self.ap.next_sc()
 
         # Update timestamp
-        # beacon_packet[Dot11Beacon].timestamp = self.ap.current_timestamp()
+        beacon_packet[Dot11Beacon].timestamp = self.ap.current_timestamp()
 
         # Send
         sendp(beacon_packet, iface=self.ap.interface, verbose=False)
@@ -247,7 +345,7 @@ class Callbacks(object):
             / Dot11Auth(seqnum=0x02)
         )
 
-        printd("Sending Authentication (0x0B)...", Level.DEBUG)
+        printd("Sending Authentication (0x0B)...", Level.INFO)
         sendp(auth_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_ack(self, receiver):
@@ -264,6 +362,7 @@ class Callbacks(object):
         response_subtype = 0x01
         if reassoc == 0x02:
             response_subtype = 0x03
+
         assoc_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -273,15 +372,15 @@ class Callbacks(object):
                 addr3=self.ap.mac,
                 SC=self.ap.next_sc(),
             )
-            / Dot11AssoResp(cap=CAP, # 0x2104
-                            status=0, AID=self.ap.next_aid())
+            / Dot11AssoResp(cap=CAP, status=0, AID=self.ap.next_aid())  # 0x2104
             / Dot11Elt(ID="Rates", info=AP_RATES)
         )
 
-        printd("Sending Association Response (0x01)...", Level.DEBUG)
+        printd("Sending Association Response (0x01)...", Level.INFO)
         sendp(assoc_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_cts(self, receiver):
+        """dot11_cts"""
         cts_packet = self.ap.get_radiotap_header() / Dot11(
             ID=0x99,
             type="Control",
@@ -295,6 +394,7 @@ class Callbacks(object):
         sendp(cts_packet, iface=self.ap.interface, verbose=False)
 
     def arp_resp(self, receiver_mac, receiver_ip):
+        """arp_resp"""
         arp_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
