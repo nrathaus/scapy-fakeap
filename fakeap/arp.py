@@ -23,7 +23,7 @@ class ARPHandler:
             temp = self.arp_table[client_ip]
         except KeyError:
             temp = None
-            printd(f"Could not find IP {client_ip} in ARP table.", Level.WARNING)
+            # printd(f"Could not find IP {client_ip} in ARP table.", Level.WARNING)
         self.mutex.release()
 
         return temp
