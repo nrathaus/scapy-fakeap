@@ -23,9 +23,11 @@ class Conf(ConfigParser):
             self
         )  # ConfigParser is an old-style class... Can't user 'super'
         self.path = path
-        self.readfp(ConfigHeader(open(path)))
+        with open(path, encoding="latin1") as file_handle:
+            self.read_file(ConfigHeader(file_handle))
 
     def get(self, key, default=None):
+        """get"""
         value = None
         try:
             value = ConfigParser.get(self, "fakeap", key)
