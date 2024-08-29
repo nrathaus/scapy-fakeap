@@ -108,6 +108,8 @@ Upon instantiation of a ```FakeAccessPoint``` object, scapy-fakeap automatically
 
 
 # Prevent NetworkManager from managing device
+`https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/configuring-networkmanager-to-ignore-certain-devices_configuring-and-managing-networking`
+
 Find the device MAC address, example:
 ```
 # ip link show
@@ -125,4 +127,8 @@ Then edit:
 ```
 [keyfile]
 unmanaged-devices=mac:00:26:f2:88:21:e3
+```
+
+```
+# systemctl reload NetworkManager
 ```
