@@ -17,9 +17,31 @@ AP_AUTH_TYPE_SHARED = 1
 # AP_RATES = "\x82\x84\x8b\x96\x0c\x12\x18\x24"
 
 # Tag: Supported Rates 1(B), 2(B), 5.5(B), 11(B), [Mbit/sec]
-AP_RATES = "\x82\x84\x8b\x96"
+# AP_RATES = "\x82\x84\x8b\x96"
 
-CAP = 'short-slot+res12+ESS+privacy+short-preamble'
+# Tag: Supported Rates 1(B), 2(B), 5.5(B), 11(B), 6, 9, 12, 18, [Mbit/sec]
+AP_RATES = b"\x82\x84\x8b\x96\x0c\x12\x18\x24"
+
+COUNTRY = (
+    b"\x55\x53"  # US Code
+    b"\x20"  # Environment Any
+    b"\x08"  # First channel
+    b"\x08"  # Last channel
+    b"\x1e"
+)  # Maximum transmit
+
+# CAP = 'short-slot+res12+ESS+privacy+short-preamble'
+# 0x2104 - PRIVACY_NONE
+CAP = "short-slot+ESS+short-preamble"
+
+# PRIVACY_WEP
+# CAP = 'ESS+privacy+short-preamble+short-slot'
+
+# PRIVACY_WPA
+# CAP = "ESS+privacy+short-preamble+short-slot"
+
+# https://github.com/blkph0x/CVE_2024_30078_POC_WIFI/blob/main/AP_Test.py#L15
+CUSTOM_VSA = b"\xdd\x07\x00\x50\xf2\x02\x01\x01"
 
 DOT11_MTU = 4096
 
