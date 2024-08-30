@@ -1,16 +1,35 @@
-# callbacks
+""" callbacks """
 import scapy.all
 import scapy.data
 import scapy.layers.eap
 import scapy.layers.l2
-from rpyutils import Level, bytes_to_mac, mac_to_bytes, printd
-from scapy.layers.dhcp import *
+from constants import (
+    AP_RATES,
+    CAP,
+    COUNTRY,
+    CUSTOM_VSA,
+    DEFAULT_DNS_SERVER,
+    DOT11_SUBTYPE_ASSOC_REQ,
+    DOT11_SUBTYPE_AUTH_REQ,
+    DOT11_SUBTYPE_PROBE_REQ,
+    DOT11_SUBTYPE_REASSOC_REQ,
+    DOT11_TYPE_DATA,
+    DOT11_TYPE_MANAGEMENT,
+    RSN,
+)
+from eap import EAPCode, EAPType
+from rpyutils import Level, bytes_to_mac, printd
+from scapy.layers.dhcp import BOOTP, DHCP
 from scapy.layers.dns import DNS
-from scapy.layers.dot11 import *
-from scapy.layers.inet import UDP
-
-from .constants import *
-from .eap import *
+from scapy.layers.dot11 import (
+    Dot11,
+    Dot11AssoResp,
+    Dot11Auth,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11ProbeResp,
+)
+from scapy.layers.inet import IP, UDP
 
 
 class Callbacks(object):
@@ -153,12 +172,20 @@ class Callbacks(object):
                 elif DHCP in packet:
                     if packet.addr1 == self.ap.mac:
                         if packet[DHCP].options[0][1] == 1:
-                            self.dhcp_offer(packet.addr2, "10.0.0.3", packet[BOOTP].xid)
+                            self.dhcp_offer(
+                                packet.addr2,
+                                "10.0.0.3",
+                                packet[BOOTP].xid,
+                            )
                             # self.cb_dhcp_discover(packet)
                             return
 
                         if packet[DHCP].options[0][1] == 3:
-                            self.dhcp_ack(packet.addr2, "10.0.0.3", packet[BOOTP].xid)
+                            self.dhcp_ack(
+                                packet.addr2,
+                                "10.0.0.3",
+                                packet[BOOTP].xid,
+                            )
                             # self.cb_dhcp_request(packet)
                             return
 
@@ -180,7 +207,7 @@ class Callbacks(object):
                 if DHCP in packet and packet[DHCP].options[0][1] == 5:  # DHCP ACK
                     client_ip = packet[BOOTP].yiaddr
                     self.ap.arp.add_entry(client_ip, client_mac)
-                    printd("IP %s -> %s" % (client_ip, client_mac), Level.INFO)
+                    printd(f"IP {client_ip} -> {client_mac}", Level.INFO)
 
                 # Forward our message to the client
                 self.dot11_encapsulate_ip(client_mac, packet)
@@ -202,7 +229,8 @@ class Callbacks(object):
             ID="HT Capabilities",
             info=b"\xff\x19"  # HT Capabilities Info: 0x19ff
             b"\x03"  # A-MPDU Parameters: 0x03
-            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"  # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
             b"\x00\x00"  # HT Extended Capabilities: 0x0000
             b"\x00\x00\x00\x00"  # Transmit Beam Forming (TxBF) Capabilities: 0x00000000
             b"\x00",  # Antenna Selection (ASEL) Capabilities: 0x00
@@ -217,13 +245,6 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
             )
             / dot11proberesp
-            # / Dot11Elt(ID="SSID", info=ssid)
-            # / Dot11Elt(ID="Rates", info=AP_RATES)
-            # / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
-            # # https://github.com/rsmusllp/eapeak/blob/master/lib/eapeak/inject.py#L256
-            # / Dot11Elt(ID="ERPinfo", info="\x04")
-            # / Dot11Elt(ID=47, info="\x04")
-            # / Dot11Elt(ID="ESRates", info="\x0c\x12\x18\x60")
             / Dot11Elt(ID="SSID", info=ssid)
             / Dot11Elt(ID="Supported Rates", info=AP_RATES)
             / Dot11Elt(ID="DSSS Set", info=chr(self.ap.channel))
@@ -251,7 +272,7 @@ class Callbacks(object):
                 b"\x19\x00",
             )
             / Dot11Elt(
-                ID="Extendend Capabilities",
+                ID="Extended Capabilities",
                 info=b"\x01",
             )
             / Dot11Elt(ID="Vendor Specific", info=CUSTOM_VSA)
@@ -264,7 +285,7 @@ class Callbacks(object):
             probe_response_packet = probe_response_packet / rsn_info
 
         printd("Sending Probe Response...", Level.DEBUG)
-        sendp(probe_response_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(probe_response_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_beacon(self, ssid):
         """Create beacon packet"""
@@ -273,7 +294,8 @@ class Callbacks(object):
             ID="HT Capabilities",
             info=b"\xff\x19"  # HT Capabilities Info: 0x19ff
             b"\x03"  # A-MPDU Parameters: 0x03
-            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"  # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            # Rx Supported Modulation and Coding Scheme Set: MCS Set
+            b"\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
             b"\x00\x00"  # HT Extended Capabilities: 0x0000
             b"\x00\x00\x00\x00"  # Transmit Beam Forming (TxBF) Capabilities: 0x00000000
             b"\x00",  # Antenna Selection (ASEL) Capabilities: 0x00
@@ -289,13 +311,6 @@ class Callbacks(object):
                 addr3=self.ap.mac,
             )
             / dot11beacon
-            # / Dot11Elt(ID="SSID", info=ssid, len=len(ssid))
-            # / Dot11Elt(ID="Rates", info=AP_RATES)
-            # / Dot11Elt(ID="DSset", info=chr(self.ap.channel))
-            # # https://github.com/rsmusllp/eapeak/blob/master/lib/eapeak/inject.py
-            # / Dot11Elt(ID="ERPinfo", info="\x04")
-            # / Dot11Elt(ID=47, info="\x04")
-            # / Dot11Elt(ID="ESRates", info="\x0c\x12\x18\x60")
             / Dot11Elt(ID="SSID", info=ssid)
             / Dot11Elt(ID="Supported Rates", info=AP_RATES)
             / Dot11Elt(ID="DSSS Set", info=bytes([self.ap.channel]))
@@ -318,7 +333,7 @@ class Callbacks(object):
                 b"\x05\x00"
                 b"\x19\x00",
             )
-            / Dot11Elt(ID="Extendend Capabilities", info="\x00")
+            / Dot11Elt(ID="Extended Capabilities", info="\x00")
             / Dot11Elt(ID="Vendor Specific", info=CUSTOM_VSA)
         )
 
@@ -334,7 +349,7 @@ class Callbacks(object):
         beacon_packet[Dot11Beacon].timestamp = self.ap.current_timestamp()
 
         # Send
-        sendp(beacon_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(beacon_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_auth(self, receiver):
         """dot11_auth"""
@@ -351,7 +366,7 @@ class Callbacks(object):
         )
 
         printd("Sending Authentication (0x0B)...", Level.INFO)
-        sendp(auth_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(auth_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_ack(self, receiver):
         """dot11_ack"""
@@ -360,7 +375,7 @@ class Callbacks(object):
         )
 
         print(f"Sending ACK (0x1D) to {receiver} ...")
-        sendp(ack_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(ack_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_assoc_resp(self, receiver, reassoc):
         """dot11_assoc_resp"""
@@ -382,7 +397,7 @@ class Callbacks(object):
         )
 
         printd("Sending Association Response (0x01)...", Level.INFO)
-        sendp(assoc_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(assoc_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_cts(self, receiver):
         """dot11_cts"""
@@ -396,7 +411,7 @@ class Callbacks(object):
         )
 
         printd("Sending CTS (0x0C)...", Level.DEBUG)
-        sendp(cts_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(cts_packet, iface=self.ap.interface, verbose=False)
 
     def arp_resp(self, receiver_mac, receiver_ip):
         """arp_resp"""
@@ -411,7 +426,7 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
-            / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+            / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_ARP)
             / scapy.layers.l2.ARP(
                 psrc=self.ap.ip.split("/")[0],
@@ -423,7 +438,7 @@ class Callbacks(object):
         )
 
         printd("Sending ARP Response...", Level.DEBUG)
-        sendp(arp_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(arp_packet, iface=self.ap.interface, verbose=False)
 
     def dot1x_eap_resp(self, receiver, eap_code, eap_type, eap_data):
         eap_packet = (
@@ -437,7 +452,7 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
-            / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+            / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=0x888E)
             / scapy.layers.eap.EAPOL(version=1, type=0)
             / scapy.layers.eap.EAP(
@@ -453,13 +468,13 @@ class Callbacks(object):
             % (eap_code, eap_type, eap_data),
             Level.DEBUG,
         )
-        sendp(eap_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(eap_packet, iface=self.ap.interface, verbose=False)
 
     def unspecified_raw(self, raw_data):
         raw_packet = str(raw_data)
 
         printd("Sending RAW packet...", Level.DEBUG)
-        sendp(raw_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(raw_packet, iface=self.ap.interface, verbose=False)
 
     def dhcp_offer(self, client_mac: str, client_ip: str, xid):
         dhcp_offer_packet = (
@@ -473,7 +488,7 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
-            / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+            / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / IP(src=self.ap.ip, dst=client_ip)
             / UDP(sport=67, dport=68)
@@ -491,7 +506,7 @@ class Callbacks(object):
         )
 
         printd("Sending DHCP Offer...", Level.INFO)
-        sendp(dhcp_offer_packet, iface=self.ap.interface, verbose=True)
+        scapy.all.sendp(dhcp_offer_packet, iface=self.ap.interface, verbose=True)
 
     def dhcp_ack(self, client_mac, client_ip, xid):
         dhcp_ack_packet = (
@@ -505,7 +520,7 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
-            / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+            / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / IP(src=self.ap.ip, dst=client_ip)
             / UDP(sport=67, dport=68)
@@ -528,7 +543,7 @@ class Callbacks(object):
         )
 
         printd("Sending DHCP Ack...", Level.INFO)
-        sendp(dhcp_ack_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(dhcp_ack_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_encapsulate_ip(self, client_mac, ip_packet):
         if IP in ip_packet:
@@ -550,12 +565,12 @@ class Callbacks(object):
                 SC=self.ap.next_sc(),
                 FCfield="from-DS",
             )
-            / LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+            / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=scapy.data.ETH_P_IP)
             / str(ip_packet)
         )
 
-        sendp(response_packet, iface=self.ap.interface, verbose=False)
+        scapy.all.sendp(response_packet, iface=self.ap.interface, verbose=False)
 
     def dot11_to_tint(self, pkt):
         self.ap.tint.write(pkt)  # Pass to third party application for handling
