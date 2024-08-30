@@ -1,7 +1,7 @@
 """arp.py"""
 import threading
 
-from rpyutils import Level
+from rpyutils import Level, printd
 
 
 class ARPHandler:
