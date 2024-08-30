@@ -1,0 +1,3 @@
+# scapy from pypi has some dot11 bugs (spelling mistakes, and dissector)
+#  github version doesn't - so we install it
+git+https://github.com/secdev/scapy
