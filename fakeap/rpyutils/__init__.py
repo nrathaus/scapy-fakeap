@@ -1,4 +1,4 @@
-from .rpyutils import (
+from rpyutils import (
     Level,
     bytes_to_mac,
     check_root,

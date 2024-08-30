@@ -1,18 +1,18 @@
-# fakeap.py
+"""fakeap.py"""
 import subprocess
 from time import sleep, time
+import threading
 
-from rpyutils import check_root, clear_ip_tables, get_frequency, if_hwaddr
+from arp import ARPHandler
+from callbacks import Callbacks
+from conf import Conf
+from eap import EAPHandler
+from rpyutils import Level, check_root, clear_ip_tables, if_hwaddr, printd
 from scapy.all import sniff
 from scapy.layers.dot11 import RadioTap
 from scapy.layers.dot11 import conf as scapyconf
 from scapy.layers.inet import TCP
-
-from .arp import *
-from .callbacks import Callbacks
-from .conf import Conf
-from .eap import *
-from .tint import TunInterface
+from tint import TunInterface
 
 
 class FakeAccessPoint(object):
@@ -151,8 +151,6 @@ class FakeAccessPoint(object):
         self.current_ssid_index = (self.current_ssid_index + 1) % maxidx
 
     def current_timestamp(self) -> int:
-        # elapsed_time = time() - self.boottime
-        # elapsed_time *= 1000000
         elapsed_time = time()
         return int(elapsed_time)
 
@@ -173,13 +171,7 @@ class FakeAccessPoint(object):
         return temp
 
     def get_radiotap_header(self):
-        radiotap_packet = RadioTap(
-            # len=18,
-            # present="Flags+Rate+Channel+dBm_AntSignal+Antenna",
-            # notdecoded=b"\x00\x6c"
-            # + get_frequency(self.channel)
-            # + b"\xc0\x00\xc0\x01\x00\x00",
-        )
+        radiotap_packet = RadioTap()
         return radiotap_packet
 
     def run(self):
