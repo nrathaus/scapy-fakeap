@@ -138,3 +138,4 @@ unmanaged-devices=mac:00:26:f2:88:21:e3
 
 https://github.com/Nautilus-Institute/quals-2023/tree/main/wifi
 https://github.com/Nautilus-Institute/finals-2023/blob/main/dron-ap/poller/src/ap.py
+https://github.com/spr-networks/barely-ap/tree/main
