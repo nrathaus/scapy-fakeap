@@ -1,7 +1,8 @@
 """ callbacks """
 import scapy.all
 import scapy.data
-import scapy.layers.eap
+import scapy.layers.dot11
+from scapy.layers.eap import EAPOL, EAP
 import scapy.layers.l2
 from constants import (
     AP_RATES,
@@ -28,13 +29,19 @@ from scapy.layers.dot11 import (
     Dot11Beacon,
     Dot11Elt,
     Dot11ProbeResp,
+    Dot11EltRSN,
+    RSNCipherSuite,
+    AKMSuite,
 )
 from scapy.layers.inet import IP, UDP
+
+STATE = "-"
 
 
 class Callbacks(object):
     def __init__(self, ap):
         self.ap = ap
+        self.state = "-"
 
         self.cb_recv_pkt = self.recv_pkt
         self.cb_dot11_probe_req = self.dot11_probe_resp
@@ -54,6 +61,20 @@ class Callbacks(object):
         self.cb_other_request = self.dot11_to_tint
 
         self.cb_tint_read = self.recv_pkt_tint
+
+    def change_state(self):
+        if self.state == "-":
+            self.state = "/"
+            return
+        if self.state == "/":
+            self.state = "|"
+            return
+        if self.state == "|":
+            self.state = "\\"
+            return
+        if self.state == "\\":
+            self.state = "-"
+            return
 
     def recv_pkt(self, packet):
         """recv_pkt"""
@@ -81,7 +102,9 @@ class Callbacks(object):
                 first_pos = dump.find("subtype")
                 second_pos = dump.find("\n", first_pos)
                 dump = dump[first_pos:second_pos]
-                print(f"Incoming MANAGEMENT packet: {dump}")
+                print(f"Incoming MANAGEMENT packet: {dump} {self.state}\r", end="")
+                self.change_state()
+
                 if packet.subtype == DOT11_SUBTYPE_PROBE_REQ:  # Probe request
                     if Dot11Elt in packet:
                         ssid = packet[Dot11Elt].info
@@ -125,21 +148,25 @@ class Callbacks(object):
             first_pos = dump.find("subtype")
             second_pos = dump.find("\n", first_pos)
             dump = dump[first_pos:second_pos]
-            print(f"Incoming DATA packet: {dump}, {packet.payload.payload}")
+            print(f"\nIncoming DATA packet: {dump}, {packet.payload.payload}")
             try:
-                if scapy.layers.eap.EAPOL in packet:
+                if scapy.layers.dot11.Dot11CCMP in packet:
                     if packet.addr1 == self.ap.mac:
-                        #  scapy.layers.eap.EAPOL Start
-                        if packet[scapy.layers.eap.EAPOL].type == 0x01:
+                        print("Dot11CCMP packet")
+                if scapy.layers.dot11.Dot11WEP in packet:
+                    if packet.addr1 == self.ap.mac:
+                        print("Dot11WEP packet")
+                if EAPOL in packet:
+                    if packet.addr1 == self.ap.mac:
+                        #  EAPOL Start
+                        if packet[EAPOL].type == 0x01:
                             self.ap.eap.reset_id()
                             self.dot1x_eap_resp(
                                 packet.addr2, EAPCode.REQUEST, EAPType.IDENTITY, None
                             )
-                if scapy.layers.eap.EAP in packet:
-                    if (
-                        packet[scapy.layers.eap.EAP].code == EAPCode.RESPONSE
-                    ):  # Responses
-                        if packet[scapy.layers.eap.EAP].type == EAPType.IDENTITY:
+                if EAP in packet:
+                    if packet[EAP].code == EAPCode.RESPONSE:  # Responses
+                        if packet[EAP].type == EAPType.IDENTITY:
                             identity = str(packet[scapy.all.Raw])
                             if packet.addr1 == self.ap.mac:
                                 # EAP Identity Response
@@ -157,7 +184,7 @@ class Callbacks(object):
                                 + "\x00\x00\x00\x00\x00\x00\x00\x00"
                                 + str(identity[0 : len(identity) - 4]),
                             )
-                        if packet[scapy.layers.eap.EAP].type == EAPType.NAK:  # NAK
+                        if packet[EAP].type == EAPType.NAK:  # NAK
                             method = str(packet[scapy.all.Raw])
                             method = method[0 : len(method) - 4]
                             method = ord(method.strip("x\\"))
@@ -165,7 +192,6 @@ class Callbacks(object):
                                 "NAK suggested method " + EAPType.convert_type(method),
                                 Level.INFO,
                             )
-
                 elif scapy.layers.l2.ARP in packet:
                     if packet[scapy.layers.l2.ARP].pdst == self.ap.ip.split("/")[0]:
                         self.cb_arp_req(packet.addr2, packet[scapy.layers.l2.ARP].psrc)
@@ -188,7 +214,6 @@ class Callbacks(object):
                             )
                             # self.cb_dhcp_request(packet)
                             return
-
                 elif DNS in packet:
                     self.cb_dns_request(packet)
                 elif IP in packet:
@@ -441,6 +466,7 @@ class Callbacks(object):
         scapy.all.sendp(arp_packet, iface=self.ap.interface, verbose=False)
 
     def dot1x_eap_resp(self, receiver, eap_code, eap_type, eap_data):
+        """dot1x_eap_resp"""
         eap_packet = (
             self.ap.get_radiotap_header()
             / Dot11(
@@ -454,23 +480,21 @@ class Callbacks(object):
             )
             / scapy.layers.l2.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
             / scapy.layers.l2.SNAP(OUI=0x000000, code=0x888E)
-            / scapy.layers.eap.EAPOL(version=1, type=0)
-            / scapy.layers.eap.EAP(
-                code=eap_code, id=self.ap.eap.next_id(), type=eap_type
-            )
+            / EAPOL(version=1, type=0)
+            / EAP(code=eap_code, id=self.ap.eap.next_id(), type=eap_type)
         )
 
         if not eap_data is None:
             eap_packet = eap_packet / str(eap_data)
 
         printd(
-            "Sending EAP Packet (code = %d, type = %d, data = %s)..."
-            % (eap_code, eap_type, eap_data),
-            Level.DEBUG,
+            f"Sending EAP Packet (code = {eap_code}, type = {eap_type}, data = {eap_data})...",
+            Level.INFO,
         )
         scapy.all.sendp(eap_packet, iface=self.ap.interface, verbose=False)
 
     def unspecified_raw(self, raw_data):
+        """unspecified_raw"""
         raw_packet = str(raw_data)
 
         printd("Sending RAW packet...", Level.DEBUG)
