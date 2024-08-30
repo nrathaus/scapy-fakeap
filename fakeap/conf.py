@@ -1,3 +1,4 @@
+"""conf.py"""
 from configparser import ConfigParser, NoOptionError
 
 from rpyutils import Level, printd
@@ -34,10 +35,10 @@ class Conf(ConfigParser):
         except NoOptionError as e:
             value = default
             printd(
-                "Option '%s' not specified in config file. Using default." % e.option,
+                f"Option '{e.option}' not specified in config file. Using default.",
                 Level.WARNING,
             )
 
-        printd("%s -> %s" % (key, value), Level.INFO)
+        printd(f"{key} -> {value}", Level.INFO)
 
         return value
