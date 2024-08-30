@@ -1,6 +1,14 @@
 """constants"""
 DEFAULT_DNS_SERVER = "8.8.8.8"
-RSN = "\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x28\x00"
+RSN = (
+    b"\x01\x00"  # Version
+    b"\x00\x0f\xac\x04"  # Group Cipher Suite: 00:0f:ac (Ieee 802.11) AES (CCM)
+    b"\x01\x00"  # Pairwise Cipher Suite Count: 1
+    b"\x00\x0f\xac\x04"  # Pairwise Cipher Suite List 00:0f:ac (Ieee 802.11) AES (CCM)
+    b"\x01\x00"  # Auth Key Management (AKM) Suite Count: 1
+    b"\x00\x0f\xac\x01"  # Auth Key Management (AKM) List 00:0f:ac (Ieee 802.11) WPA
+    b"\x28\x00"  # RSN Capabilities: 0x0028
+)
 
 AP_WLAN_TYPE_OPEN = 0
 AP_WLAN_TYPE_WPA = 1
@@ -27,13 +35,10 @@ COUNTRY = (
 
 # CAP = 'short-slot+res12+ESS+privacy+short-preamble'
 # 0x2104 - PRIVACY_NONE
-CAP = "short-slot+ESS+short-preamble"
+# CAP = "short-slot+ESS+short-preamble"
 
 # PRIVACY_WEP
-# CAP = 'ESS+privacy+short-preamble+short-slot'
-
-# PRIVACY_WPA
-# CAP = "ESS+privacy+short-preamble+short-slot"
+CAP = "ESS+privacy+short-preamble+short-slot"
 
 # https://github.com/blkph0x/CVE_2024_30078_POC_WIFI/blob/main/AP_Test.py#L15
 CUSTOM_VSA = b"\xdd\x07\x00\x50\xf2\x02\x01\x01"
