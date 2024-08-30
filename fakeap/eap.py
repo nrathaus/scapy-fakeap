@@ -1,7 +1,10 @@
+"""eap.py"""
 import threading
 
 
 class EAPCode:
+    """EAPCode"""
+
     REQUEST = 1
     RESPONSE = 2
     SUCCESS = 3
@@ -9,6 +12,8 @@ class EAPCode:
 
 
 class EAPType:
+    """EAPType"""
+
     IDENTITY = 1
     NOTIFICATION = 2
     NAK = 3
@@ -31,11 +36,14 @@ class EAPType:
 
 
 class EAPHandler:
+    """EAPHandler"""
+
     def __init__(self):
         self.id = 0
         self.mutex = threading.Lock()
 
     def next_id(self):
+        """next_id"""
         self.mutex.acquire()
         self.id = self.id + 1
         temp = self.id
@@ -44,6 +52,7 @@ class EAPHandler:
         return temp
 
     def reset_id(self):
+        """reset_id"""
         self.mutex.acquire()
         self.id = 0
         self.mutex.release()

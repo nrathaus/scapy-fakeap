@@ -1,10 +1,12 @@
-# arp.py
+"""arp.py"""
 import threading
 
 from rpyutils import Level
 
 
 class ARPHandler:
+    """ARPHandler"""
+
     def __init__(self):
         self.mutex = threading.Lock()
         self.arp_table = {}

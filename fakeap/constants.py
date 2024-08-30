@@ -1,6 +1,4 @@
-import platform
-
-RUNNING_ON_PI = platform.machine() == "armv6l"
+"""constants"""
 DEFAULT_DNS_SERVER = "8.8.8.8"
 RSN = "\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x28\x00"
 

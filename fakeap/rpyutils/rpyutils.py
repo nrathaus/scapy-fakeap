@@ -29,16 +29,19 @@ class Color:
 
 
 def clr(color, text):
+    """clr"""
     return color + str(text) + "\x1b[0m"
 
 
 def check_root():
+    """check_root"""
     if not os.geteuid() == 0:
         printd(clr(Color.RED, "Run as root."), Level.CRITICAL)
         exit(1)
 
 
 def check_root_shadow():
+    """check_root_shadow"""
     dev_null = open(os.devnull, "w")
 
     try:
@@ -49,6 +52,7 @@ def check_root_shadow():
 
 
 def set_monitor_mode(wlan_dev, enable=True):
+    """set_monitor_mode"""
     monitor_dev = None
     if enable:
         result = subprocess.check_output(["airmon-ng", "start", wlan_dev])
@@ -56,8 +60,9 @@ def set_monitor_mode(wlan_dev, enable=True):
             printd(
                 clr(
                     Color.RED,
-                    "ERROR: Airmon could not enable monitor mode on device %s. Make sure you are root, and that"
-                    "your wlan card supports monitor mode." % wlan_dev,
+                    f"ERROR: Airmon could not enable monitor mode on device {wlan_dev}."
+                    " Make sure you are root, and that"
+                    "your wlan card supports monitor mode.",
                 ),
                 Level.CRITICAL,
             )
@@ -65,7 +70,7 @@ def set_monitor_mode(wlan_dev, enable=True):
         monitor_dev = re.search(r"monitor mode enabled on (\w+)", result).group(1)
 
         printd(
-            "Airmon set %s to monitor mode on %s" % (wlan_dev, monitor_dev), Level.INFO
+            f"Airmon set '{wlan_dev}' to monitor mode on '{monitor_dev}'", Level.INFO
         )
     else:
         subprocess.check_output(["airmon-ng", "stop", wlan_dev])
@@ -74,14 +79,16 @@ def set_monitor_mode(wlan_dev, enable=True):
 
 
 def set_ip_address(dev, ip):
+    """set_ip_address"""
     if subprocess.call(["ip", "addr", "add", ip, "dev", dev]):
-        printd("Failed to assign IP address %s to %s." % (ip, dev), Level.CRITICAL)
+        printd(f"Failed to assign IP address {ip} to '{dev}'.", Level.CRITICAL)
 
     if subprocess.call(["ip", "link", "set", "dev", dev, "up"]):
-        printd("Failed to bring device %s up." % dev, Level.CRITICAL)
+        printd(f"Failed to bring device '{dev}' up.", Level.CRITICAL)
 
 
 def clear_ip_tables():
+    """clear_ip_tables"""
     if subprocess.call(["iptables", "--flush"]):
         printd("Failed to flush iptables.", Level.CRITICAL)
     if subprocess.call(["iptables", "--table", "nat", "--flush"]):
@@ -99,12 +106,14 @@ def printd(string, level):
 
 
 def hex_offset_to_string(byte_array):
+    """hex_offset_to_string"""
     temp = byte_array.replace("\n", "")
     temp = temp.replace(" ", "")
     return temp.decode("hex")
 
 
 def get_frequency(channel):
+    """get_frequency"""
     if channel == 14:
         freq = 2484
     else:
@@ -116,18 +125,22 @@ def get_frequency(channel):
 
 
 def mac_to_bytes(mac):
+    """mac_to_bytes"""
     return "".join(chr(int(x, 16)) for x in mac.split(":"))
 
 
 def bytes_to_mac(byte_array):
+    """bytes_to_mac"""
     return ":".join("{:02x}".format(ord(byte)) for byte in byte_array)
 
 
 # Scapy sees mon0 interface as invalid address family, so we write our own
 def if_hwaddr(iff):
+    """if_hwaddr"""
     return str2mac(get_if_raw_hwaddr(iff)[1])
 
 
 def set_debug_level(lvl):
+    """set_debug_level"""
     global VERBOSITY
     VERBOSITY = lvl
